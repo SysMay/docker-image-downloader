@@ -1,0 +1,40 @@
+name: Save Docker Image to Tar
+# 触发方式：手动触发
+on:
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: '镜像名称 (例如: nocobase/nocobase:2.0.0-beta.6-full)'
+        required: true
+        default: 'nocobase/nocobase:2.0.0-beta.6-full'
+
+jobs:
+  download-and-save:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 释放磁盘空间 (可选，防止镜像过大导致空间不足)
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+
+      # 2. 拉取镜像
+      - name: Pull Docker Image
+        run: docker pull ${{ inputs.image_name }}
+
+      # 3. 将镜像保存为 tar 包
+      - name: Save Image to Tar
+        run: |
+          # 将冒号替换为下划线，作为文件名
+          FILENAME=$(echo "${{ inputs.image_name }}" | tr '/:' '_').tar
+          docker save -o $FILENAME ${{ inputs.image_name }}
+          echo "TAR_NAME=$FILENAME" >> $GITHUB_ENV
+
+      # 4. 上传为 Artifact (供你下载)
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-tar
+          path: ${{ env.TAR_NAME }}
+          retention-days: 1 # 只保留1天，节省空间
